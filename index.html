@@ -10,27 +10,53 @@
     .panel { border: 1px solid #ccc; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; background: #fafafa; }
     button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; border-radius: 6px; border: 1px solid #333; background: #222; color: #fff; }
     button:hover { background: #444; }
-    button.btn-secondary { background: #fff; color: #222; border-color: #888; }
-    button.btn-secondary:hover { background: #eee; }
-    .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; }
     pre { overflow: auto; background: #fff; border: 1px solid #ddd; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
     .muted { color: #555; font-size: 0.95rem; }
     .site-a { color: #0a6; font-weight: 600; }
     .site-b { color: #06a; font-weight: 600; }
+    .form-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; margin: 0.75rem 0; }
+    .form-row label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; }
+    .form-row input { padding: 0.35rem 0.5rem; min-width: 9rem; font-size: 1rem; }
+    button.btn-lite { background: #fff; color: #222; border: 1px solid #888; margin-left: 0.5rem; }
+    button.btn-lite:hover { background: #eee; }
   </style>
-  <!-- Resolve active monitor site from cookie before the monitor snippet runs -->
+  <!-- Site pair from localStorage (or defaults) + active site from cookie, before monitor snippet -->
   <script>
     (function () {
       var COOKIE_NAME = 'lp_monitor_site';
-      var SITE_A = '55504938';
-      var SITE_B = '45975138';
+      var STORAGE_KEY = 'lp_monitor_site_pair';
+      var DEFAULT_A = '55504938';
+      var DEFAULT_B = '45975138';
+
+      function readPair() {
+        try {
+          var raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return [DEFAULT_A, DEFAULT_B];
+          var p = JSON.parse(raw);
+          if (!Array.isArray(p) || p.length !== 2) return [DEFAULT_A, DEFAULT_B];
+          var a = String(p[0] == null ? '' : p[0]).trim();
+          var b = String(p[1] == null ? '' : p[1]).trim();
+          if (!/^\d+$/.test(a) || !/^\d+$/.test(b) || a === b) return [DEFAULT_A, DEFAULT_B];
+          return [a, b];
+        } catch (e) {
+          return [DEFAULT_A, DEFAULT_B];
+        }
+      }
+
       function readCookie(name) {
         var m = document.cookie.match(new RegExp('(?:^|; )' + encodeURIComponent(name) + '=([^;]*)'));
         return m ? decodeURIComponent(m[1]) : '';
       }
+
+      var pair = readPair();
+      var SITE_A = pair[0];
+      var SITE_B = pair[1];
       var v = readCookie(COOKIE_NAME);
       if (v !== SITE_A && v !== SITE_B) v = SITE_A;
+
+      window.__LP_SITE_A__ = SITE_A;
+      window.__LP_SITE_B__ = SITE_B;
       window.__LP_MONITOR_SITE__ = v;
       document.documentElement.setAttribute('data-lp-site', v);
     })();
@@ -41,16 +67,31 @@
 </head>
 <body>
   <h1>LivePerson monitor: two-site toggle + SDE</h1>
-  <p class="muted">Uses cookie <code>lp_monitor_site</code> to choose site <span class="site-a">55504938</span> or <span class="site-b">45975138</span>, reloads, then queues a customer-info SDE tied to that site id in several fields so you can verify routing in-session.</p>
+  <p class="muted">Uses cookie <code>lp_monitor_site</code> to choose which of your two site IDs is active, reloads on switch, then queues a customer-info SDE tied to that site id so you can verify routing in-session. Defaults are <span class="site-a">55504938</span> and <span class="site-b">45975138</span>; partners can replace them below (saved only in this browser).</p>
+
+  <div class="panel">
+    <p><strong>Site IDs for A / B</strong></p>
+    <p class="form-row">
+      <label>Site A (first toggle target)
+        <input type="text" id="input-site-a" inputmode="numeric" autocomplete="off" spellcheck="false">
+      </label>
+      <label>Site B (second)
+        <input type="text" id="input-site-b" inputmode="numeric" autocomplete="off" spellcheck="false">
+      </label>
+    </p>
+    <p>
+      <button type="button" id="btn-save-pair">Save site IDs &amp; reload</button>
+      <button type="button" class="btn-lite" id="btn-demo-pair">Use demo IDs &amp; reload</button>
+    </p>
+    <p class="muted" id="pair-hint"></p>
+  </div>
 
   <div class="panel">
     <p><strong>Active monitor site:</strong> <span id="site-label"></span></p>
-    <p class="btn-row">
+    <p>
       <button type="button" id="btn-switch">Switch to other site &amp; reload</button>
-      <button type="button" class="btn-secondary" id="btn-reset-storage">Clear storages &amp; other cookies, reload</button>
     </p>
     <p class="muted" id="cookie-hint"></p>
-    <p class="muted" id="reset-hint">Resets <code>localStorage</code>, <code>sessionStorage</code>, Cache Storage, IndexedDB (when supported), unregisters service workers. Deletes every cookie this page can see except <code>lp_monitor_site</code>. HttpOnly or cookies on other domains/paths may remain.</p>
   </div>
 
   <div class="panel">
@@ -62,9 +103,46 @@
   <script>
     (function () {
       var COOKIE_NAME = 'lp_monitor_site';
-      var SITE_A = '55504938';
-      var SITE_B = '45975138';
+      var STORAGE_KEY = 'lp_monitor_site_pair';
+      var DEFAULT_A = '55504938';
+      var DEFAULT_B = '45975138';
+      var SITE_A = window.__LP_SITE_A__ || DEFAULT_A;
+      var SITE_B = window.__LP_SITE_B__ || DEFAULT_B;
       var siteId = window.__LP_MONITOR_SITE__ || SITE_A;
+
+      var inputA = document.getElementById('input-site-a');
+      var inputB = document.getElementById('input-site-b');
+      var pairHint = document.getElementById('pair-hint');
+      inputA.value = SITE_A;
+      inputB.value = SITE_B;
+      pairHint.textContent = 'Saved under localStorage key ' + STORAGE_KEY + ' (this origin only). Invalid saved values fall back to demo IDs.';
+
+      document.getElementById('btn-save-pair').onclick = function () {
+        var a = inputA.value.trim();
+        var b = inputB.value.trim();
+        if (!/^\d+$/.test(a) || !/^\d+$/.test(b)) {
+          pairHint.textContent = 'Enter two numeric LivePerson site IDs.';
+          return;
+        }
+        if (a === b) {
+          pairHint.textContent = 'Site A and Site B must be different.';
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify([a, b]));
+        } catch (e) {
+          pairHint.textContent = 'Could not save (storage disabled or full). Browser: ' + (e && e.message ? e.message : String(e));
+          return;
+        }
+        location.reload();
+      };
+
+      document.getElementById('btn-demo-pair').onclick = function () {
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (e) {}
+        location.reload();
+      };
 
       function labelFor(s) {
         return s === SITE_A ? SITE_A + ' (A)' : SITE_B + ' (B)';
@@ -79,77 +157,6 @@
         document.cookie = COOKIE_NAME + '=' + encodeURIComponent(next) +
           '; path=/; max-age=' + (60 * 60 * 24 * 365) + '; SameSite=Lax';
         location.reload();
-      };
-
-      function deleteAllCookiesExcept(keepName) {
-        var raw = document.cookie;
-        if (!raw) return;
-        raw.split(';').forEach(function (pair) {
-          var s = pair.trim();
-          if (!s) return;
-          var eq = s.indexOf('=');
-          var name = (eq >= 0 ? s.slice(0, eq) : s).trim();
-          if (!name || name === keepName) return;
-          document.cookie = name + '=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
-          document.cookie = name + '=; path=/; max-age=0; SameSite=Lax';
-        });
-      }
-
-      function deleteAllIndexedDbs() {
-        if (!window.indexedDB || typeof indexedDB.databases !== 'function') {
-          return Promise.resolve();
-        }
-        return indexedDB.databases().then(function (dbs) {
-          return Promise.all(
-            dbs.map(function (db) {
-              if (!db || !db.name) return Promise.resolve();
-              return new Promise(function (resolve) {
-                var req = indexedDB.deleteDatabase(db.name);
-                req.onsuccess = req.onerror = req.onblocked = function () { resolve(); };
-              });
-            })
-          );
-        });
-      }
-
-      function deleteAllCaches() {
-        if (!('caches' in window) || !window.caches || !window.caches.keys) {
-          return Promise.resolve();
-        }
-        return caches.keys().then(function (keys) {
-          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-        });
-      }
-
-      function unregisterAllServiceWorkers() {
-        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistrations) {
-          return Promise.resolve();
-        }
-        return navigator.serviceWorker.getRegistrations().then(function (regs) {
-          return Promise.all(regs.map(function (r) { return r.unregister(); }));
-        });
-      }
-
-      document.getElementById('btn-reset-storage').onclick = function () {
-        var btn = document.getElementById('btn-reset-storage');
-        btn.disabled = true;
-        btn.textContent = 'Clearing…';
-
-        try { sessionStorage.clear(); } catch (e) {}
-        try { localStorage.clear(); } catch (e) {}
-
-        Promise.resolve()
-          .then(function () { return deleteAllCaches(); })
-          .then(function () { return deleteAllIndexedDbs(); })
-          .then(function () { return unregisterAllServiceWorkers(); })
-          .then(function () {
-            deleteAllCookiesExcept(COOKIE_NAME);
-            location.reload();
-          })
-          .catch(function () {
-            deleteAllCookiesExcept(COOKIE_NAME);
-            location.reload();
-          });
       };
 
       function buildSdePayload(sid) {
