@@ -10,6 +10,9 @@
     .panel { border: 1px solid #ccc; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; background: #fafafa; }
     button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; border-radius: 6px; border: 1px solid #333; background: #222; color: #fff; }
     button:hover { background: #444; }
+    button.btn-secondary { background: #fff; color: #222; border-color: #888; }
+    button.btn-secondary:hover { background: #eee; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
     code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; }
     pre { overflow: auto; background: #fff; border: 1px solid #ddd; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
     .muted { color: #555; font-size: 0.95rem; }
@@ -42,10 +45,12 @@
 
   <div class="panel">
     <p><strong>Active monitor site:</strong> <span id="site-label"></span></p>
-    <p>
+    <p class="btn-row">
       <button type="button" id="btn-switch">Switch to other site &amp; reload</button>
+      <button type="button" class="btn-secondary" id="btn-reset-storage">Clear storages &amp; other cookies, reload</button>
     </p>
     <p class="muted" id="cookie-hint"></p>
+    <p class="muted" id="reset-hint">Resets <code>localStorage</code>, <code>sessionStorage</code>, Cache Storage, IndexedDB (when supported), unregisters service workers. Deletes every cookie this page can see except <code>lp_monitor_site</code>. HttpOnly or cookies on other domains/paths may remain.</p>
   </div>
 
   <div class="panel">
@@ -74,6 +79,77 @@
         document.cookie = COOKIE_NAME + '=' + encodeURIComponent(next) +
           '; path=/; max-age=' + (60 * 60 * 24 * 365) + '; SameSite=Lax';
         location.reload();
+      };
+
+      function deleteAllCookiesExcept(keepName) {
+        var raw = document.cookie;
+        if (!raw) return;
+        raw.split(';').forEach(function (pair) {
+          var s = pair.trim();
+          if (!s) return;
+          var eq = s.indexOf('=');
+          var name = (eq >= 0 ? s.slice(0, eq) : s).trim();
+          if (!name || name === keepName) return;
+          document.cookie = name + '=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+          document.cookie = name + '=; path=/; max-age=0; SameSite=Lax';
+        });
+      }
+
+      function deleteAllIndexedDbs() {
+        if (!window.indexedDB || typeof indexedDB.databases !== 'function') {
+          return Promise.resolve();
+        }
+        return indexedDB.databases().then(function (dbs) {
+          return Promise.all(
+            dbs.map(function (db) {
+              if (!db || !db.name) return Promise.resolve();
+              return new Promise(function (resolve) {
+                var req = indexedDB.deleteDatabase(db.name);
+                req.onsuccess = req.onerror = req.onblocked = function () { resolve(); };
+              });
+            })
+          );
+        });
+      }
+
+      function deleteAllCaches() {
+        if (!('caches' in window) || !window.caches || !window.caches.keys) {
+          return Promise.resolve();
+        }
+        return caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        });
+      }
+
+      function unregisterAllServiceWorkers() {
+        if (!('serviceWorker' in navigator) || !navigator.serviceWorker.getRegistrations) {
+          return Promise.resolve();
+        }
+        return navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        });
+      }
+
+      document.getElementById('btn-reset-storage').onclick = function () {
+        var btn = document.getElementById('btn-reset-storage');
+        btn.disabled = true;
+        btn.textContent = 'Clearing…';
+
+        try { sessionStorage.clear(); } catch (e) {}
+        try { localStorage.clear(); } catch (e) {}
+
+        Promise.resolve()
+          .then(function () { return deleteAllCaches(); })
+          .then(function () { return deleteAllIndexedDbs(); })
+          .then(function () { return unregisterAllServiceWorkers(); })
+          .then(function () {
+            deleteAllCookiesExcept(COOKIE_NAME);
+            location.reload();
+          })
+          .catch(function () {
+            deleteAllCookiesExcept(COOKIE_NAME);
+            location.reload();
+          });
       };
 
       function buildSdePayload(sid) {
