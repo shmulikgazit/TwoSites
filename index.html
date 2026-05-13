@@ -96,7 +96,7 @@
 
   <div class="panel">
     <p><strong>SDE status:</strong> <span id="sde-status">Waiting for tag…</span></p>
-    <p class="muted">Payload sent (for logs):</p>
+    <p class="muted">Payload queued for LivePerson (for logs). <code>socialId</code> is set to <strong>Unix epoch seconds</strong> at the moment the SDE is pushed.</p>
     <pre id="sde-preview"></pre>
   </div>
 
@@ -168,7 +168,7 @@
             customerId: 'LP-MONITOR-SITE-' + sid,
             balance: -400.99,
             currency: 'USD',
-            socialId: '11256324780',
+            socialId: '',
             imei: '3543546543545688',
             userName: 'user-site-' + sid,
             companySize: 500,
@@ -192,10 +192,14 @@
       function pushSdeOnce(note) {
         if (sdePushed) return;
         if (!window.lpTag) return;
+        var epochSec = String(Math.floor(Date.now() / 1000));
+        payload.info.socialId = epochSec;
+        preview.textContent = JSON.stringify(payload, null, 2);
         lpTag.sdes = lpTag.sdes || [];
         lpTag.sdes.push(payload);
         sdePushed = true;
         statusEl.textContent = 'SDE queued for site ' + siteId + ' at ' + new Date().toISOString() +
+          '; socialId (epoch sec)=' + epochSec +
           (note ? ' ' + note : '');
       }
 
