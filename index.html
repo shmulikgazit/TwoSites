@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-lp-site="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LivePerson monitor - two-site cookie toggle + SDE</title>
+  <style>
+    :root { font-family: system-ui, Segoe UI, Roboto, sans-serif; line-height: 1.45; }
+    body { max-width: 52rem; margin: 1.5rem auto; padding: 0 1rem; color: #1a1a1a; }
+    .panel { border: 1px solid #ccc; border-radius: 8px; padding: 1rem 1.25rem; margin: 1rem 0; background: #fafafa; }
+    button { padding: 0.5rem 1rem; font-size: 1rem; cursor: pointer; border-radius: 6px; border: 1px solid #333; background: #222; color: #fff; }
+    button:hover { background: #444; }
+    code, pre { font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; }
+    pre { overflow: auto; background: #fff; border: 1px solid #ddd; padding: 0.75rem; border-radius: 6px; white-space: pre-wrap; word-break: break-all; }
+    .muted { color: #555; font-size: 0.95rem; }
+    .site-a { color: #0a6; font-weight: 600; }
+    .site-b { color: #06a; font-weight: 600; }
+  </style>
+  <!-- Resolve active monitor site from cookie before the monitor snippet runs -->
+  <script>
+    (function () {
+      var COOKIE_NAME = 'lp_monitor_site';
+      var SITE_A = '55504938';
+      var SITE_B = '45975138';
+      function readCookie(name) {
+        var m = document.cookie.match(new RegExp('(?:^|; )' + encodeURIComponent(name) + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : '';
+      }
+      var v = readCookie(COOKIE_NAME);
+      if (v !== SITE_A && v !== SITE_B) v = SITE_A;
+      window.__LP_MONITOR_SITE__ = v;
+      document.documentElement.setAttribute('data-lp-site', v);
+    })();
+  </script>
+  <!-- BEGIN LivePerson Monitor (site id from cookie via window.__LP_MONITOR_SITE__) -->
+  <script type="text/javascript">window.lpTag=window.lpTag||{},'undefined'==typeof window.lpTag._tagCount?(window.lpTag={wl:lpTag.wl||null,scp:lpTag.scp||null,site:window.__LP_MONITOR_SITE__||'',section:lpTag.section||'',tagletSection:lpTag.tagletSection||null,autoStart:lpTag.autoStart!==!1,ovr:lpTag.ovr||{},_v:'1.10.0',_tagCount:1,protocol:'https:',events:{bind:function(t,e,i){lpTag.defer(function(){lpTag.events.bind(t,e,i)},0)},trigger:function(t,e,i){lpTag.defer(function(){lpTag.events.trigger(t,e,i)},1)}},defer:function(t,e){0===e?(this._defB=this._defB||[],this._defB.push(t)):1===e?(this._defT=this._defT||[],this._defT.push(t)):(this._defL=this._defL||[],this._defL.push(t))},load:function(t,e,i){var n=this;setTimeout(function(){n._load(t,e,i)},0)},_load:function(t,e,i){var n=t;t||(n=this.protocol+'//'+(this.ovr&&this.ovr.domain?this.ovr.domain:'lptag.liveperson.net')+'/tag/tag.js?site='+this.site);var o=document.createElement('script');o.setAttribute('charset',e?e:'UTF-8'),i&&o.setAttribute('id',i),o.setAttribute('src',n),document.getElementsByTagName('head').item(0).appendChild(o)},init:function(){this._timing=this._timing||{},this._timing.start=(new Date).getTime();var t=this;window.attachEvent?window.attachEvent('onload',function(){t._domReady('domReady')}):(window.addEventListener('DOMContentLoaded',function(){t._domReady('contReady')},!1),window.addEventListener('load',function(){t._domReady('domReady')},!1)),'undefined'===typeof window._lptStop&&this.load()},start:function(){this.autoStart=!0},_domReady:function(t){this.isDom||(this.isDom=!0,this.events.trigger('LPT','DOM_READY',{t:t})),this._timing[t]=(new Date).getTime()},vars:lpTag.vars||[],dbs:lpTag.dbs||[],ctn:lpTag.ctn||[],sdes:lpTag.sdes||[],hooks:lpTag.hooks||[],identities:lpTag.identities||[],ev:lpTag.ev||[]},lpTag.init()):window.lpTag._tagCount+=1;</script>
+  <!-- END LivePerson Monitor. -->
+</head>
+<body>
+  <h1>LivePerson monitor: two-site toggle + SDE</h1>
+  <p class="muted">Uses cookie <code>lp_monitor_site</code> to choose site <span class="site-a">55504938</span> or <span class="site-b">45975138</span>, reloads, then queues a customer-info SDE tied to that site id in several fields so you can verify routing in-session.</p>
+
+  <div class="panel">
+    <p><strong>Active monitor site:</strong> <span id="site-label"></span></p>
+    <p>
+      <button type="button" id="btn-switch">Switch to other site &amp; reload</button>
+    </p>
+    <p class="muted" id="cookie-hint"></p>
+  </div>
+
+  <div class="panel">
+    <p><strong>SDE status:</strong> <span id="sde-status">Waiting for tag…</span></p>
+    <p class="muted">Payload sent (for logs):</p>
+    <pre id="sde-preview"></pre>
+  </div>
+
+  <script>
+    (function () {
+      var COOKIE_NAME = 'lp_monitor_site';
+      var SITE_A = '55504938';
+      var SITE_B = '45975138';
+      var siteId = window.__LP_MONITOR_SITE__ || SITE_A;
+
+      function labelFor(s) {
+        return s === SITE_A ? SITE_A + ' (A)' : SITE_B + ' (B)';
+      }
+
+      document.getElementById('site-label').textContent = labelFor(siteId);
+      document.getElementById('cookie-hint').textContent =
+        'Cookie ' + COOKIE_NAME + '=' + siteId + ' (Path=/). After switch, the page reloads so the monitor tag is injected for the other site.';
+
+      document.getElementById('btn-switch').onclick = function () {
+        var next = siteId === SITE_A ? SITE_B : SITE_A;
+        document.cookie = COOKIE_NAME + '=' + encodeURIComponent(next) +
+          '; path=/; max-age=' + (60 * 60 * 24 * 365) + '; SameSite=Lax';
+        location.reload();
+      };
+
+      function buildSdePayload(sid) {
+        return {
+          type: 'ctmrinfo',
+          info: {
+            cstatus: 'cancelled',
+            ctype: 'vip',
+            customerId: 'LP-MONITOR-SITE-' + sid,
+            balance: -400.99,
+            currency: 'USD',
+            socialId: '11256324780',
+            imei: '3543546543545688',
+            userName: 'user-site-' + sid,
+            companySize: 500,
+            companyBranch: 'East Village',
+            accountName: 'GH-Pages LP monitor - site ' + sid,
+            role: 'broker',
+            lastPaymentDate: { day: 15, month: 10, year: 2014 },
+            registrationDate: { day: 23, month: 5, year: 2013 },
+            storeNumber: String(sid),
+            storeZipCode: '20505'
+          }
+        };
+      }
+
+      var payload = buildSdePayload(siteId);
+      var preview = document.getElementById('sde-preview');
+      var statusEl = document.getElementById('sde-status');
+      preview.textContent = JSON.stringify(payload, null, 2);
+
+      var sdePushed = false;
+      function pushSdeOnce(note) {
+        if (sdePushed) return;
+        if (!window.lpTag) return;
+        lpTag.sdes = lpTag.sdes || [];
+        lpTag.sdes.push(payload);
+        sdePushed = true;
+        statusEl.textContent = 'SDE queued for site ' + siteId + ' at ' + new Date().toISOString() +
+          (note ? ' ' + note : '');
+      }
+
+      function armSde() {
+        if (!window.lpTag || !lpTag.events) {
+          setTimeout(armSde, 50);
+          return;
+        }
+        var fired = false;
+        function go() {
+          if (fired) return;
+          fired = true;
+          setTimeout(function () { pushSdeOnce(); }, 800);
+        }
+        try {
+          lpTag.events.bind('LPT', 'DOM_READY', go);
+        } catch (e) {
+          statusEl.textContent = 'Could not bind LPT DOM_READY: ' + (e && e.message ? e.message : e);
+        }
+        if (lpTag.isDom) go();
+      }
+      armSde();
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          if (sdePushed) return;
+          pushSdeOnce('(window load fallback)');
+          if (!sdePushed) {
+            statusEl.textContent = 'SDE not queued: lpTag still unavailable after load + delay.';
+          }
+        }, 2500);
+      });
+    })();
+  </script>
+</body>
+</html>
